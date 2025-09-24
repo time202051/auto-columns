@@ -120,13 +120,16 @@ export class SwaggerService {
     }> = [];
 
     // helper: 递归提取 requestBody schema 的叶子字段（仅保留叶子名，不带父路径）
-    const collectLeaves = (schema: any, cb: (info: {
-      name: string;
-      type: string;
-      description?: string;
-      format?: string;
-      enum?: any[];
-    }) => void) => {
+    const collectLeaves = (
+      schema: any,
+      cb: (info: {
+        name: string;
+        type: string;
+        description?: string;
+        format?: string;
+        enum?: any[];
+      }) => void
+    ) => {
       if (!schema) return;
 
       // 解析类型
@@ -156,7 +159,11 @@ export class SwaggerService {
             });
           }
         }
-        if (!schema.properties && schema.additionalProperties && typeof schema.additionalProperties === "object") {
+        if (
+          !schema.properties &&
+          schema.additionalProperties &&
+          typeof schema.additionalProperties === "object"
+        ) {
           collectLeaves(schema.additionalProperties, cb);
         }
         return;
@@ -443,5 +450,73 @@ export class SwaggerService {
       console.error("解析URL失败:", error);
       return null;
     }
+  }
+
+  /**
+   * 从多个URL中提取Swagger信息
+   */
+  extractSwaggerInfoFromUrls(
+    urls: string | string[]
+  ): { swaggerUrl: string; apiPath: string }[] {
+    try {
+      let urlList: string[];
+
+      // 判断输入是字符串还是数组
+      if (typeof urls === "string") {
+        // 尝试解析JSON数组格式
+        try {
+          const parsed = JSON.parse(urls);
+          if (Array.isArray(parsed)) {
+            urlList = parsed;
+          } else {
+            urlList = [urls];
+          }
+        } catch {
+          // 如果不是JSON格式，当作单个URL处理
+          urlList = [urls];
+        }
+      } else {
+        urlList = urls;
+      }
+
+      const results: { swaggerUrl: string; apiPath: string }[] = [];
+
+      for (const url of urlList) {
+        const swaggerInfo = this.extractSwaggerInfoFromUrl(url);
+        if (swaggerInfo) {
+          results.push(swaggerInfo);
+        }
+      }
+
+      return results;
+    } catch (error) {
+      console.error("解析多URL失败:", error);
+      return [];
+    }
+  }
+
+  /**
+   * 解析多个Swagger API
+   */
+  async parseMultipleSwaggerApis(
+    swaggerInfos: { swaggerUrl: string; apiPath: string }[]
+  ): Promise<{ [apiPath: string]: SwaggerInfo }> {
+    const results: { [apiPath: string]: SwaggerInfo } = {};
+
+    for (const swaggerInfo of swaggerInfos) {
+      try {
+        const apiInfo = await this.parseSwaggerApi(
+          swaggerInfo.swaggerUrl,
+          swaggerInfo.apiPath
+        );
+        if (apiInfo) {
+          results[swaggerInfo.apiPath] = apiInfo;
+        }
+      } catch (error) {
+        console.error(`解析API失败 ${swaggerInfo.apiPath}:`, error);
+      }
+    }
+
+    return results;
   }
 }
