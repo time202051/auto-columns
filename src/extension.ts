@@ -1,225 +1,319 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import * as vscode from 'vscode';
-import { SwaggerService } from './swaggerService';
+import * as vscode from "vscode";
+import { SwaggerService } from "./swaggerService";
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
+
 export function activate(context: vscode.ExtensionContext) {
+  // Use the console to output diagnostic information (console.log) and errors (console.error)
+  // This line of code will only be executed once when your extension is activated
+  console.log('Congratulations, your extension "auto-columns" is now active!');
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "auto-columns" is now active!');
+  // 注册提取Swagger信息的命令
+  const extractSwaggerInfoCommand = vscode.commands.registerCommand(
+    "auto-columns.extractSwaggerInfo",
+    async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        vscode.window.showWarningMessage("请先打开一个文件");
+        return;
+      }
 
-	// 注册提取Swagger信息的命令
-	const extractSwaggerInfoCommand = vscode.commands.registerCommand('auto-columns.extractSwaggerInfo', async () => {
-		const editor = vscode.window.activeTextEditor;
-		if (!editor) {
-			vscode.window.showWarningMessage('请先打开一个文件');
-			return;
-		}
+      const selection = editor.selection;
+      if (selection.isEmpty) {
+        vscode.window.showWarningMessage("请先选中一个URL地址");
+        return;
+      }
 
-		const selection = editor.selection;
-		if (selection.isEmpty) {
-			vscode.window.showWarningMessage('请先选中一个URL地址');
-			return;
-		}
+      const selectedText = editor.document.getText(selection);
+      const swaggerService = SwaggerService.getInstance();
 
-		const selectedText = editor.document.getText(selection);
-		const swaggerService = SwaggerService.getInstance();
-		
-		// 从选中的文本中提取Swagger信息
-		const swaggerInfo = swaggerService.extractSwaggerInfoFromUrl(selectedText);
-		console.log(1111111, swaggerInfo,selectedText);
-		
-		if (!swaggerInfo) {
-			vscode.window.showErrorMessage('无法从选中的文本中提取Swagger信息，请确保选中的是一个有效的API URL');
-			return;
-		}
+      // 从选中的文本中提取Swagger信息
+      const swaggerInfo =
+        swaggerService.extractSwaggerInfoFromUrl(selectedText);
+      console.log(1111111, swaggerInfo, selectedText);
 
-		try {
-			// 显示加载状态
-			await vscode.window.withProgress({
-				location: vscode.ProgressLocation.Notification,
-				title: "正在解析Swagger API...",
-				cancellable: false
-			}, async (progress) => {
-				console.log(444,progress,swaggerInfo);
-				
-				progress.report({ increment: 0 });
-				
-				// 解析Swagger API
-				const apiInfo = await swaggerService.parseSwaggerApi(swaggerInfo.swaggerUrl, swaggerInfo.apiPath);
-				console.log(5555,apiInfo);
-				
-				progress.report({ increment: 100 });
-				
-				if (apiInfo) {
-					// 显示结果
-					showSwaggerInfo(apiInfo, swaggerInfo.apiPath);
-				} else {
-					vscode.window.showErrorMessage('解析Swagger API失败');
-				}
-			});
-		} catch (error) {
-			vscode.window.showErrorMessage(`解析失败: ${error instanceof Error ? error.message : '未知错误'}`);
-		}
-	});
+      if (!swaggerInfo) {
+        vscode.window.showErrorMessage(
+          "无法从选中的文本中提取Swagger信息，请确保选中的是一个有效的API URL"
+        );
+        return;
+      }
 
-	// 注册Hello World命令（保留原有功能）
-	const helloWorldCommand = vscode.commands.registerCommand('auto-columns.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from auto-columns!');
-	});
+      try {
+        // 显示加载状态
+        await vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: "正在解析Swagger API...",
+            cancellable: false,
+          },
+          async (progress) => {
+            console.log(444, progress, swaggerInfo);
 
-	context.subscriptions.push(extractSwaggerInfoCommand, helloWorldCommand);
+            progress.report({ increment: 0 });
+
+            // 解析Swagger API
+            const apiInfo = await swaggerService.parseSwaggerApi(
+              swaggerInfo.swaggerUrl,
+              swaggerInfo.apiPath
+            );
+            console.log(5555, apiInfo);
+
+            progress.report({ increment: 100 });
+
+            if (apiInfo) {
+              // 显示结果
+              showSwaggerInfo(apiInfo, swaggerInfo.apiPath);
+            } else {
+              vscode.window.showErrorMessage("解析Swagger API失败");
+            }
+          }
+        );
+      } catch (error) {
+        vscode.window.showErrorMessage(
+          `解析失败: ${error instanceof Error ? error.message : "未知错误"}`
+        );
+      }
+    }
+  );
+
+  // 注册Hello World命令（保留原有功能）
+  const helloWorldCommand = vscode.commands.registerCommand(
+    "auto-columns.helloWorld",
+    () => {
+      // The code you place here will be executed every time your command is executed
+      // Display a message box to the user
+      vscode.window.showInformationMessage("Hello World from auto-columns!");
+    }
+  );
+
+  context.subscriptions.push(extractSwaggerInfoCommand, helloWorldCommand);
 }
 
 /**
  * 显示Swagger API信息
  */
 function showSwaggerInfo(apiInfo: any, apiPath: string) {
-	const panel = vscode.window.createWebviewPanel(
-		'swaggerInfo',
-		`Swagger API信息 - ${apiPath}`,
-		vscode.ViewColumn.One,
-		{
-			enableScripts: true,
-			retainContextWhenHidden: true
-		}
-	);
+  const panel = vscode.window.createWebviewPanel(
+    "swaggerInfo",
+    `Swagger API信息 - ${apiPath}`,
+    vscode.ViewColumn.One,
+    {
+      enableScripts: true,
+      retainContextWhenHidden: true,
+    }
+  );
 
-	const html = generateSwaggerInfoHtml(apiInfo, apiPath);
-	panel.webview.html = html;
+  const html = generateSwaggerInfoHtml(apiInfo, apiPath);
+  panel.webview.html = html;
+
+  // 接收 Webview 消息并写入剪贴板
+  panel.webview.onDidReceiveMessage(async (msg) => {
+    if (msg?.type === "copy" && typeof msg.text === "string") {
+      await vscode.env.clipboard.writeText(msg.text);
+      vscode.window.showInformationMessage("已复制到剪贴板");
+    }
+  });
 }
 
 /**
  * 生成响应字段的HTML - 树形结构（同一张表内）
  */
-function generateResponsesHtml(responses: any[]): string {
-	if (!responses || responses.length === 0) {
-		return '<tr><td colspan="3" style="text-align: center; color: #666;">暂无响应信息</td></tr>';
-	}
+function generateResponsesHtml(responses: any[], method: string): string {
+  if (!responses || responses.length === 0) {
+    return '<tr><td colspan="5" style="text-align: center; color: #666;">暂无响应信息</td></tr>';
+  }
 
-	return generateTreeHtml(responses, 0);
+  return generateTreeHtml(responses, 0, method, "");
 }
 
 /**
  * 生成树形HTML（同表多行；父子行共享表格，统一 hover/样式）
+ * 所有层级：均可选择与复制
  */
-function generateTreeHtml(nodes: any[], level: number): string {
-	return nodes.map(node => {
-    if(node.type.includes('array')){
-      console.log(1111, node);
-    }
-    console.log(2222, node);
-		const indent = level * 20;
-		const hasChildren = node.children && node.children.length > 0;
-		const nodeId = `node-${Math.random().toString(36).substr(2, 9)}`;
+function generateTreeHtml(nodes: any[], level: number, method: string, parentPath: string): string {
+  return nodes
+    .map((node) => {
+      const indent = level * 20;
+      const hasChildren = node.children && node.children.length > 0;
+      const nodeId = `node-${Math.random().toString(36).substr(2, 9)}`;
+      const path = parentPath ? `${parentPath}.${node.name}` : `${node.name}`;
 
-		// 父行
-		const currentRow = `
-      <tr class="tree-row" data-level="${level}" data-node-id="${nodeId}">
+      const currentRow = `
+      <tr class="tree-row" data-level="${level}" data-node-id="${nodeId}" data-method="${method}" data-path="${path}">
+        <td class="select-col">
+          <input type="checkbox" class="resp-check" data-method="${method}" data-prop="${node.name}" data-prop-path="${path}">
+        </td>
         <td style="padding-left: ${indent + 12}px;">
           <span class="tree-node" data-node-id="${nodeId}">
-            ${hasChildren ? `<button class="expand-btn" onclick="toggleNode('${nodeId}')">+</button>` : '<span class="no-expand"></span>'}
+            ${
+              hasChildren
+                ? `<button class="expand-btn" onclick="toggleNode('${nodeId}')">+</button>`
+                : '<span class="no-expand"></span>'
+            }
             <span class="field-name">${node.name}</span>
           </span>
         </td>
         <td><span class="type">${node.type}</span></td>
-        <td>${node.description || '-'}</td>
-        </tr>
-        `;
+        <td>${node.description || "-"}</td>
+        <td class="op-col">
+          <button class="copy-btn small" onclick="copySingleResponse('${method}','${path.replace(/'/g, "\\'")}', this)">复制</button>
+        </td>
+      </tr>
+      `;
 
-		// 子行（默认隐藏，通过 data-parent 进行层级控制）
-		const childrenRows = hasChildren
-			? node.children.map((child: any) => generateChildRows(child, level + 1, nodeId)).join('')
-			: '';
-		return currentRow + childrenRows;
-	}).join('');
+      const childrenRows = hasChildren
+        ? node.children
+            .map((child: any) =>
+              generateChildRows(child, level + 1, nodeId, method, path)
+            )
+            .join("")
+        : "";
+      return currentRow + childrenRows;
+    })
+    .join("");
 }
 
 /**
- * 生成子节点行（递归，仍在同一张表）
+ * 生成子节点行（递归，仍在同一张表；所有层级可选/可复制）
  */
-function generateChildRows(node: any, level: number, parentId: string): string {
-	const indent = level * 20;
-	const hasChildren = node.children && node.children.length > 0;
-	const nodeId = `node-${Math.random().toString(36).substr(2, 9)}`;
+function generateChildRows(
+  node: any,
+  level: number,
+  parentId: string,
+  method: string,
+  parentPath: string
+): string {
+  const indent = level * 20;
+  const hasChildren = node.children && node.children.length > 0;
+  const nodeId = `node-${Math.random().toString(36).substr(2, 9)}`;
+  const path = parentPath ? `${parentPath}.${node.name}` : `${node.name}`;
 
-	const row = `
-    <tr class="tree-row" data-level="${level}" data-parent="${parentId}" data-node-id="${nodeId}" style="display: none;">
+  const row = `
+    <tr class="tree-row" data-level="${level}" data-parent="${parentId}" data-node-id="${nodeId}" data-method="${method}" data-path="${path}" style="display: none;">
+      <td class="select-col">
+        <input type="checkbox" class="resp-check" data-method="${method}" data-prop="${node.name}" data-prop-path="${path}">
+      </td>
       <td style="padding-left: ${indent + 12}px;">
         <span class="tree-node" data-node-id="${nodeId}">
-          ${hasChildren ? `<button class="expand-btn" onclick="toggleNode('${nodeId}')">+</button>` : '<span class="no-expand"></span>'}
+          ${
+            hasChildren
+              ? `<button class="expand-btn" onclick="toggleNode('${nodeId}')">+</button>`
+              : '<span class="no-expand"></span>'
+          }
           <span class="field-name">${node.name}</span>
         </span>
       </td>
       <td><span class="type">${node.type}</span></td>
-      <td>${node.description || '-'}</td>
+      <td>${node.description || "-"}</td>
+      <td class="op-col">
+        <button class="copy-btn small" onclick="copySingleResponse('${method}','${path.replace(/'/g, "\\'")}', this)">复制</button>
+      </td>
     </tr>
   `;
 
-	const childrenRows = hasChildren
-		? node.children.map((child: any) => generateChildRows(child, level + 1, nodeId)).join('')
-		: '';
+  const childrenRows = hasChildren
+    ? node.children
+        .map((child: any) =>
+          generateChildRows(child, level + 1, nodeId, method, path)
+        )
+        .join("")
+    : "";
 
-	return row + childrenRows;
+  return row + childrenRows;
 }
 
 /**
  * 生成Swagger信息HTML（支持同路径多方法 Tab 切换）
  */
 function generateSwaggerInfoHtml(apiInfo: any, apiPath: string): string {
-	const methodOrder = ['GET','POST','PUT','DELETE','PATCH'];
-	const available = methodOrder.filter(m => apiInfo.byMethod && apiInfo.byMethod[m]);
-	const first = available[0];
+  const methodOrder = ["GET", "POST", "PUT", "DELETE", "PATCH"];
+  const available = methodOrder.filter(
+    (m) => apiInfo.byMethod && apiInfo.byMethod[m]
+  );
+  const first = available[0];
 
-	const tabsHtml = available.map(m => `
-    <button class="tab-btn${m === first ? ' active' : ''}" data-method="${m}" onclick="switchMethod('${m}')">${m}</button>
-  `).join('');
+  const tabsHtml = available
+    .map(
+      (m) => `
+    <button class="tab-btn${
+      m === first ? " active" : ""
+    }" data-method="${m}" onclick="switchMethod('${m}')">${m}</button>
+  `
+    )
+    .join("");
 
-	const sectionsHtml = available.map(m => {
-		const methodInfo = apiInfo.byMethod[m];
-		const parametersHtml = (methodInfo.parameters || []).map((param: any) => `
-      <tr>
+  const sectionsHtml = available
+    .map((m) => {
+      const methodInfo = apiInfo.byMethod[m];
+      const parametersHtml = (methodInfo.parameters || [])
+        .map(
+          (param: any) => `
+      <tr data-method="${m}">
+        <td class="select-col"><input type="checkbox" class="param-check" data-method="${m}" data-name="${param.name}"></td>
         <td>${param.name}</td>
         <td><span class="type">${param.type}</span></td>
-        <td><span class="${param.required ? 'required' : ''}">${param.required ? '是' : '否'}</span></td>
-        <td>${param.description || '-'}</td>
+        <td><span class="${param.required ? "required" : ""}">${param.required ? "是" : "否"}</span></td>
+        <td>${param.description || "-"}</td>
+        <td class="op-col"><button class="copy-btn small" onclick="copySingleParam('${m}','${param.name.replace(/'/g,"\\'")}', this)">复制</button></td>
       </tr>
-    `).join('');
+    `
+        )
+        .join("");
 
-		const responsesHtml = generateResponsesHtml(methodInfo.responses || []);
+      const responsesHtml = generateResponsesHtml(
+        methodInfo.responses || [],
+        m
+      );
 
-		return `
-      <div class="method-section" data-method="${m}" style="${m === first ? '' : 'display:none;'}">
+      return `
+      <div class="method-section" data-method="${m}" style="${m === first ? "" : "display:none;"}">
         <div class="section">
           <h2>请求参数</h2>
+          <div class="ops">
+            <button class="copy-btn" onclick="copyParams('${m}','selected', this)">复制选中</button>
+            <button class="copy-btn" onclick="copyParams('${m}','all', this)">复制全部</button>
+            <label class="select-all">
+              <input type="checkbox" onclick="toggleSelectAll('params','${m}',this)"> 全选
+            </label>
+          </div>
           <table>
             <thead>
               <tr>
+                <th style="width:44px;"></th>
                 <th>参数名</th>
                 <th>类型</th>
                 <th>必填</th>
                 <th>描述</th>
+                <th style="width:72px;">操作</th>
               </tr>
             </thead>
             <tbody>
-              ${parametersHtml || '<tr><td colspan="4" style="text-align: center; color: #666;">暂无参数信息</td></tr>'}
+              ${parametersHtml || '<tr><td colspan="6" style="text-align: center; color: #666;">暂无参数信息</td></tr>'}
             </tbody>
           </table>
         </div>
 
         <div class="section">
           <h2>响应字段 (200状态码)</h2>
-          <table>
+          <div class="ops">
+            <button class="copy-btn" onclick="copyResponses('${m}','selected', this)">复制选中</button>
+            <button class="copy-btn" onclick="copyResponses('${m}','all', this)">复制全部</button>
+            <label class="select-all">
+              <input type="checkbox" onclick="toggleSelectAll('responses','${m}',this)"> 全选(当前可见层级)
+            </label>
+          </div>
+          <table class="responses-table">
             <thead>
               <tr>
+                <th style="width:44px;"></th>
                 <th>字段名</th>
                 <th>类型</th>
                 <th>描述</th>
+                <th style="width:72px;">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -229,9 +323,10 @@ function generateSwaggerInfoHtml(apiInfo: any, apiPath: string): string {
         </div>
       </div>
     `;
-	}).join('');
+    })
+    .join("");
 
-	return `
+  return `
     <!DOCTYPE html>
     <html lang="zh-CN">
     <head>
@@ -303,6 +398,41 @@ function generateSwaggerInfoHtml(apiInfo: any, apiPath: string): string {
           margin-bottom: 12px;
           font-size: 14px;
         }
+        .ops {
+          display:flex;
+          align-items:center;
+          gap:8px;
+          margin:8px 0;
+        }
+        .copy-btn {
+          background: var(--vscode-button-background, #0e639c);
+          color: var(--vscode-button-foreground, #ffffff);
+          border: 1px solid transparent;
+          padding: 2px 10px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 600;
+        }
+        .copy-btn.small {
+          padding: 0 8px;
+          height: 20px;
+        }
+        .copy-btn:active {
+          transform: scale(0.96);
+        }
+        .copy-btn.copied {
+          background: var(--vscode-testing-iconPassed, #2ea043);
+          border-color: transparent;
+        }
+        .copy-btn.copied::after {
+          content: ' ✓';
+        }
+        .select-all {
+          margin-left: 8px;
+          opacity: .9;
+          font-size: 12px;
+        }
         table {
           width: 100%;
           border-collapse: collapse;
@@ -321,16 +451,18 @@ function generateSwaggerInfoHtml(apiInfo: any, apiPath: string): string {
           font-weight: 600;
           color: var(--vscode-foreground, #d4d4d4);
         }
-        /* 统一 hover 效果，与 VS Code 列表 hover 接近 */
+        /* hover 效果：统一与参数表一致，并确保响应表全层级生效 */
         tr:hover,
-        .tree-row:hover {
+        .tree-row:hover,
+        .responses-table tr:hover,
+        .responses-table .tree-row:hover {
           background-color: var(--vscode-list-hoverBackground, rgba(255,255,255,0.04));
         }
         .required {
           color: var(--vscode-errorForeground, #f14c4c);
           font-weight: 600;
         }
-  		.type {
+        .type {
           display: inline-block !important;
           background-color: var(--vscode-badge-background, #4d4d4d) !important;
           color: var(--vscode-badge-foreground, #ffffff) !important;
@@ -349,7 +481,7 @@ function generateSwaggerInfoHtml(apiInfo: any, apiPath: string): string {
         /* 强制覆盖表格单元格内的类型徽章 */
         td .type {
           display: inline-block !important;
-          height: auto !important;
+          height: auto !重要;
           min-height: auto !important;
           vertical-align: baseline !important;
         }
@@ -401,6 +533,8 @@ function generateSwaggerInfoHtml(apiInfo: any, apiPath: string): string {
           background-color: transparent;
           font-weight: normal;
         }
+        .select-col { width: 44px; }
+        .op-col { width: 72px; }
       </style>
     </head>
     <body>
@@ -419,6 +553,9 @@ function generateSwaggerInfoHtml(apiInfo: any, apiPath: string): string {
       </div>
       
       <script>
+        const vscode = acquireVsCodeApi();
+        const __API_BY_METHOD__ = ${JSON.stringify(apiInfo.byMethod || {})};
+
         function switchMethod(method) {
           document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.toggle('active', btn.getAttribute('data-method') === method);
@@ -451,6 +588,184 @@ function generateSwaggerInfoHtml(apiInfo: any, apiPath: string): string {
               setChildrenVisibility(nid, false);
             }
           });
+        }
+
+        function mapInputType(t) {
+          const type = String(t || '').toLowerCase();
+          if (type === 'integer' || type === 'number') return 'number';
+          if (type === 'boolean') return 'switch';
+          return 'text';
+        }
+
+        function copyText(text) {
+          vscode.postMessage({ type: 'copy', text });
+        }
+
+        function feedback(btn) {
+          if (!btn) return;
+          const old = btn.textContent;
+          btn.disabled = true;
+          btn.textContent = '已复制';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = old;
+            btn.classList.remove('copied');
+          }, 900);
+        }
+
+        function buildParams(method, mode) {
+          const raw = __API_BY_METHOD__[method]?.parameters || [];
+          let pickedNames = null;
+          if (mode === 'selected') {
+            pickedNames = Array.from(document.querySelectorAll('.param-check[data-method="'+method+'"]:checked')).map(i => i.getAttribute('data-name'));
+          }
+          const list = raw
+            .filter(p => !pickedNames || pickedNames.includes(p.name))
+            .map(p => {
+              // 输入类型映射：enum => select；时间类(format) => picker；其它 => text
+              const fmt = String(p.format || '').toLowerCase();
+              const isTime = fmt === 'date' || fmt === 'date-time' || fmt === 'datetime' || fmt === 'time' || fmt === 'timestamp';
+              const isSelect = Array.isArray(p.enum) && p.enum.length > 0;
+              const inputType = isSelect ? 'select' : (isTime ? 'picker' : 'text');
+              const item = {
+                label: p.description || p.name || '',
+                value: p.name || '',
+                inputType,
+              };
+              if (inputType === 'select') {
+                item['children'] = [];
+              }
+              return item;
+            });
+          return list;
+        }
+
+        // 遍历辅助：按路径找到节点
+        function findNodeByPath(roots, path) {
+          if (!path) return null;
+          const parts = path.split('.');
+          let cur = null;
+          let curList = roots;
+          for (const seg of parts) {
+            cur = (curList || []).find(n => n.name === seg);
+            if (!cur) return null;
+            curList = cur.children || [];
+          }
+          return cur;
+        }
+
+        // 将节点展开为“叶子字段列”
+        function collectLeavesFromNode(node, basePath) {
+          const out = [];
+          if (!node) return out;
+
+          const curPath = basePath ? basePath : node.name;
+          const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+
+          if (!hasChildren) {
+            const leafProp = String(curPath || node.name || '').split('.').pop() || '';
+            out.push({
+              prop: leafProp,
+              label: node.description || (node.name || ''),
+              sortable: false,
+              show: true,
+            });
+            return out;
+          }
+
+          // 对象/数组：向下收集所有叶子
+          for (const child of (node.children || [])) {
+            const childPath = curPath ? (curPath + '.' + child.name) : child.name;
+            out.push(...collectLeavesFromNode(child, childPath));
+          }
+          return out;
+        }
+
+        // 将整个根集合展开为叶子（用于“全部”）
+        function collectAllLeaves(roots) {
+          const out = [];
+          for (const r of (roots || [])) {
+            out.push(...collectLeavesFromNode(r, r.name));
+          }
+          return out;
+        }
+
+        function buildResponses(method, mode) {
+          const roots = __API_BY_METHOD__[method]?.responses || [];
+          let cols = [];
+
+          if (mode === 'all') {
+            const leaves = collectAllLeaves(roots);
+            cols = [
+              { label: "", type: "selection", show: true },
+              ...leaves
+            ];
+            return cols;
+          }
+
+          // selected：允许任意层级
+          const pickedPaths = Array.from(document.querySelectorAll('.resp-check[data-method="'+method+'"]:checked')).map(i => i.getAttribute('data-prop-path'));
+          const seen = new Set();
+          for (const p of pickedPaths) {
+            const node = findNodeByPath(roots, p || '');
+            if (!node) continue;
+            const leaves = collectLeavesFromNode(node, p || node.name);
+            for (const col of leaves) {
+              if (seen.has(col.prop)) continue;
+              seen.add(col.prop);
+              cols.push(col);
+            }
+          }
+          return cols;
+        }
+
+        function copyParams(method, mode, btn) {
+          const data = buildParams(method, mode);
+          // 单选返回对象，多选返回数组；全部复制始终数组
+          if (mode === 'selected') {
+            const selectedChecks = Array.from(document.querySelectorAll('.param-check[data-method="'+method+'"]:checked'));
+            const payload = selectedChecks.length === 1 ? (data[0] || {}) : data;
+            copyText(JSON.stringify(payload, null, 2));
+          } else {
+            copyText(JSON.stringify(data, null, 2));
+          }
+          feedback(btn);
+        }
+        function copySingleParam(method, name, btn) {
+          const data = buildParams(method, 'all').find(i => i.value === name);
+          if (data) {
+            // 单条复制直接返回对象
+            copyText(JSON.stringify(data, null, 2));
+            feedback(btn);
+          }
+        }
+        function copyResponses(method, mode, btn) {
+          const data = buildResponses(method, mode);
+          copyText(JSON.stringify(data, null, 2));
+          feedback(btn);
+        }
+        function copySingleResponse(method, path, btn) {
+          const roots = __API_BY_METHOD__[method]?.responses || [];
+          const node = findNodeByPath(roots, path);
+          if (!node) return;
+          const cols = collectLeavesFromNode(node, path);
+          const payload = cols.length === 1 ? cols[0] : cols;
+          copyText(JSON.stringify(payload, null, 2));
+          feedback(btn);
+        }
+        function toggleSelectAll(kind, method, el) {
+          if (kind === 'params') {
+            document.querySelectorAll('.param-check[data-method="'+method+'"]').forEach(i => i.checked = el.checked);
+          } else {
+            // 响应：当前可见层级（仅当前展开显示的行）
+            document.querySelectorAll('.resp-check[data-method="'+method+'"]').forEach((i) => {
+              const tr = i.closest('tr');
+              if (tr && tr.style.display !== 'none') {
+                i.checked = el.checked;
+              }
+            });
+          }
         }
         
         // 页面加载完成后，默认展开第一层
