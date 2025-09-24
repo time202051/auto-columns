@@ -1,15 +1,71 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
+import {
+  findBasicImport,
+  collectBasicKeys,
+  resolveBasicUrlMap,
+  buildImportCandidates,
+  extractBasicObjectUrls,
+  findSwaggerImport,
+  parseSwaggerImport,
+  collectImportedObjectUsages,
+  resolveSwaggerObjectMaps,
+} from "./utils";
 import { SwaggerService } from "./swaggerService";
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
+const GLOBAL_KEY_SWAGGER_BASE = "autoColumns.swaggerBaseUrl";
+function joinUrl(base: string, path: string): string {
+  if (!base) return path || "";
+  if (!path) return base || "";
+  const a = base.endsWith("/") ? base.slice(0, -1) : base;
+  const b = path.startsWith("/")
+    ? path.slice(0, 1) === "/"
+      ? path.replace(/^\/+/, "/")
+      : path
+    : `/${path}`;
+  // 避免双斜杠：a + b（确保 b 以 / 开头）
+  return a + (b.startsWith("/") ? b : `/${b}`);
+}
 
+async function getOrAskSwaggerBaseUrl(
+  context: vscode.ExtensionContext
+): Promise<string> {
+  const cached = context.globalState.get<string>(GLOBAL_KEY_SWAGGER_BASE) || "";
+  if (cached) return cached;
+
+  const input = await vscode.window.showInputBox({
+    title: "请输入 Swagger 基地址（如 https://api.example.com 或空）",
+    value: cached,
+    ignoreFocusOut: true,
+    placeHolder: "例如：https://api.example.com",
+    prompt:
+      "该地址将会自动拼接到所有收集到的 URL 前面，可随时通过“设置 Swagger 基地址”命令修改",
+  });
+  const val = (input || "").trim();
+  await context.globalState.update(GLOBAL_KEY_SWAGGER_BASE, val);
+  return val;
+}
+
+async function setSwaggerBaseUrl(context: vscode.ExtensionContext) {
+  const current =
+    context.globalState.get<string>(GLOBAL_KEY_SWAGGER_BASE) || "";
+  const input = await vscode.window.showInputBox({
+    title: "设置 Swagger 基地址",
+    value: current,
+    ignoreFocusOut: true,
+    placeHolder: "例如：https://api.example.com，留空表示不拼接",
+  });
+  if (input === undefined) return; // 用户取消
+  const val = (input || "").trim();
+  await context.globalState.update(GLOBAL_KEY_SWAGGER_BASE, val);
+  vscode.window.showInformationMessage(
+    `Swagger 基地址已更新${val ? `：${val}` : "（为空）"}`
+  );
+}
 export function activate(context: vscode.ExtensionContext) {
   // Use the console to output diagnostic information (console.log) and errors (console.error)
   // This line of code will only be executed once when your extension is activated
-  console.log('Congratulations, your extension "auto-columns" is now active!');
 
   // 注册提取Swagger信息的命令
   const extractSwaggerInfoCommand = vscode.commands.registerCommand(
@@ -31,9 +87,9 @@ export function activate(context: vscode.ExtensionContext) {
       const swaggerService = SwaggerService.getInstance();
 
       // 从选中的文本中提取Swagger信息（支持多URL）
+
       const swaggerInfos =
         swaggerService.extractSwaggerInfoFromUrls(selectedText);
-      console.log(1111111, swaggerInfos, selectedText);
 
       if (!swaggerInfos || swaggerInfos.length === 0) {
         vscode.window.showErrorMessage(
@@ -51,15 +107,12 @@ export function activate(context: vscode.ExtensionContext) {
             cancellable: false,
           },
           async (progress) => {
-            console.log(444, progress, swaggerInfos);
-
             progress.report({ increment: 0 });
 
             // 解析多个Swagger API
             const apiInfos = await swaggerService.parseMultipleSwaggerApis(
               swaggerInfos
             );
-            console.log(5555, apiInfos);
 
             progress.report({ increment: 100 });
 
@@ -89,9 +142,188 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  context.subscriptions.push(extractSwaggerInfoCommand, helloWorldCommand);
-}
+  const collectApiUrlsCommand = vscode.commands.registerCommand(
+    "auto-columns.collectApiUrls",
+    async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        vscode.window.showInformationMessage("未检测到接口");
+        return;
+      }
 
+      const doc = editor.document;
+      const lang = doc.languageId;
+      if (lang !== "vue" && lang !== "javascript") {
+        vscode.window.showInformationMessage("未检测到接口");
+        return;
+      }
+
+      const text = doc.getText();
+
+      // 解析任何包含 swagger 的导入（命名/命名空间）
+      const parsed = parseSwaggerImport(text);
+
+      if (parsed) {
+        const namedLocals = parsed.named.map((n) => n.local);
+        const usages = collectImportedObjectUsages(
+          text,
+          namedLocals,
+          parsed.namespace
+        );
+
+        if (usages.length === 0) {
+          vscode.window.showInformationMessage("未检测到接口");
+          return;
+        }
+
+        // 读取 swagger 模块，构建 导出对象 -> (键->URL)
+        const maps = await resolveSwaggerObjectMaps(parsed.modulePath, doc.uri);
+
+        // 本地名 -> 导出名 的映射（用于重命名导入）
+        const localToExported = new Map<string, string>();
+        for (const n of parsed.named) {
+          localToExported.set(n.local, n.exported);
+        }
+
+        const urls: string[] = [];
+        for (const u of usages) {
+          // 命名导入用法：object 是本地名，需要还原成导出名
+          const exportedObject =
+            localToExported.get(u.object) || // 命名导入本地名
+            u.object; // 命名空间用法已经是导出对象名（ns.Object.key）
+          const url = maps.get(exportedObject)?.get(u.key);
+          if (url) urls.push(url);
+        }
+        const dedup = Array.from(new Set(urls));
+        const base = await getOrAskSwaggerBaseUrl(context);
+        const finalUrls = dedup.map((u) => joinUrl(base, u));
+        // await vscode.env.clipboard.writeText(
+        //   JSON.stringify(finalUrls, null, 2)
+        // );
+        // vscode.window.showInformationMessage(
+        //   `已复制 ${finalUrls.length} 个URL`
+        // );
+
+        // 追加：直接进入 extractSwaggerInfo 流程
+        await runExtractSwaggerInfoFlow(finalUrls);
+        return;
+      }
+
+      // 回退：老的 Basic 用法（保持返回 [] 的语义）
+      const importInfo = findBasicImport(text);
+      if (!importInfo) {
+        vscode.window.showInformationMessage("未检测到接口");
+        return;
+      }
+      const basicKeys = collectBasicKeys(text);
+      if (basicKeys.length === 0) {
+        vscode.window.showInformationMessage("未检测到接口");
+        return;
+      }
+      const urlMap = await resolveBasicUrlMap(importInfo.modulePath);
+      const urls: string[] = [];
+      for (const k of basicKeys) {
+        const v = urlMap.get(k);
+        if (v) urls.push(v);
+      }
+      const dedup = Array.from(new Set(urls));
+      const base = await getOrAskSwaggerBaseUrl(context);
+      const finalUrls = dedup.map((u) => joinUrl(base, u));
+      // await vscode.env.clipboard.writeText(JSON.stringify(finalUrls, null, 2));
+      // vscode.window.showInformationMessage(`已复制 ${finalUrls.length} 个URL`);
+      // 追加：直接进入 extractSwaggerInfo 流程
+      await runExtractSwaggerInfoFlow(finalUrls);
+    }
+  );
+
+  // 设置全局变量，swagger服务地址
+  const setSwaggerBaseUrlCommand = vscode.commands.registerCommand(
+    "auto-columns.setSwaggerBaseUrl",
+    async () => {
+      await setSwaggerBaseUrl(context);
+    }
+  );
+
+  context.subscriptions.push(
+    extractSwaggerInfoCommand,
+    helloWorldCommand,
+    collectApiUrlsCommand,
+    setSwaggerBaseUrlCommand
+  );
+}
+async function runExtractSwaggerInfoFlow(selectedText: string[]) {
+  const swaggerService = SwaggerService.getInstance();
+
+  // 从选中的文本中提取Swagger信息（支持多URL）
+
+  const swaggerInfos = swaggerService.extractSwaggerInfoFromUrls(selectedText);
+
+  if (!swaggerInfos || swaggerInfos.length === 0) {
+    vscode.window.showErrorMessage(
+      "无法从选中的文本中提取Swagger信息，请确保选中的是有效的API URL或URL数组"
+    );
+    return;
+  }
+
+  try {
+    // 显示加载状态
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: `正在解析${swaggerInfos.length}个Swagger API...`,
+        cancellable: false,
+      },
+      async (progress) => {
+        progress.report({ increment: 0 });
+
+        // 解析多个Swagger API
+        const apiInfos = await swaggerService.parseMultipleSwaggerApis(
+          swaggerInfos
+        );
+
+        progress.report({ increment: 100 });
+
+        if (Object.keys(apiInfos).length > 0) {
+          // 显示结果
+          showMultipleSwaggerInfo(apiInfos);
+        } else {
+          vscode.window.showErrorMessage("解析Swagger API失败");
+        }
+      }
+    );
+  } catch (error) {
+    vscode.window.showErrorMessage(
+      `解析失败: ${error instanceof Error ? error.message : "未知错误"}`
+    );
+  }
+}
+async function runExtractSwaggerInfoFlow1(urls: string[]) {
+  if (!urls || urls.length === 0) {
+    vscode.window.showWarningMessage("未发现可解析的 URL");
+    return;
+  }
+  const swaggerService = SwaggerService.getInstance();
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: `正在解析 ${urls.length} 个Swagger API...`,
+      cancellable: false,
+    },
+    async (progress) => {
+      progress.report({ increment: 0 });
+      const swaggerInfos = swaggerService.extractSwaggerInfoFromUrls(urls);
+      const apiInfos = await swaggerService.parseMultipleSwaggerApis(
+        swaggerInfos
+      );
+      progress.report({ increment: 100 });
+      if (Object.keys(apiInfos).length > 0) {
+        showMultipleSwaggerInfo(apiInfos);
+      } else {
+        vscode.window.showErrorMessage("解析Swagger API失败");
+      }
+    }
+  );
+}
 /**
  * 显示Swagger API信息
  */

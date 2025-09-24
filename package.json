@@ -4,7 +4,7 @@
   "description": "从 Swagger/OpenAPI 文档中提取分页接口的请求参数与 200 响应字段，在 VS Code 中以可视化方式展示，并一键复制为前端所需的配置结构",
   "publisher": "lijiapeng",
   "icon": "images/logo.png",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "engines": {
     "vscode": "^1.60.0"
   },
@@ -20,7 +20,9 @@
     "url": "https://github.com/time202051/auto-columns/issues"
   },
   "activationEvents": [
-    "onCommand:auto-columns.extractSwaggerInfo"
+    "onCommand:auto-columns.extractSwaggerInfo",
+    "onCommand:auto-columns.collectApiUrls",
+    "onCommand:auto-columns.setSwaggerBaseUrl"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -31,7 +33,17 @@
       },
       {
         "command": "auto-columns.extractSwaggerInfo",
-        "title": "提取Swagger分页接口信息",
+        "title": "提取Swagger接口信息",
+        "category": "Auto Columns"
+      },
+      {
+        "command": "auto-columns.collectApiUrls",
+        "title": "收集接口URL（Basic）",
+        "category": "Auto Columns"
+      },
+      {
+        "command": "auto-columns.setSwaggerBaseUrl",
+        "title": "设置 Swagger 基地址",
         "category": "Auto Columns"
       }
     ],
@@ -40,6 +52,16 @@
         {
           "command": "auto-columns.extractSwaggerInfo",
           "when": "editorHasSelection",
+          "group": "1_modification"
+        },
+        {
+          "command": "auto-columns.collectApiUrls",
+          "when": "resourceLangId == vue",
+          "group": "1_modification"
+        },
+        {
+          "command": "auto-columns.collectApiUrls",
+          "when": "resourceLangId == javascript",
           "group": "1_modification"
         }
       ]
@@ -72,6 +94,8 @@
   },
   "dependencies": {
     "@apidevtools/swagger-parser": "^12.0.0",
+    "@babel/parser": "^7.28.4",
+    "@babel/traverse": "^7.28.4",
     "@types/swagger-parser": "^7.0.1",
     "axios": "^1.12.2",
     "swagger-client": "^3.0.1",
