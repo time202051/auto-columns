@@ -38,7 +38,7 @@
       },
       {
         "command": "auto-columns.collectApiUrls",
-        "title": "收集接口URL（Basic）",
+        "title": "提取页面Swagger接口信息",
         "category": "Auto Columns"
       },
       {
@@ -50,11 +50,6 @@
     "menus": {
       "editor/context": [
         {
-          "command": "auto-columns.extractSwaggerInfo",
-          "when": "editorHasSelection",
-          "group": "1_modification"
-        },
-        {
           "command": "auto-columns.collectApiUrls",
           "when": "resourceLangId == vue",
           "group": "1_modification"
@@ -62,6 +57,10 @@
         {
           "command": "auto-columns.collectApiUrls",
           "when": "resourceLangId == javascript",
+          "group": "1_modification"
+        },
+        {
+          "command": "auto-columns.setSwaggerBaseUrl",
           "group": "1_modification"
         }
       ]
@@ -79,9 +78,10 @@
     "test": "vscode-test"
   },
   "devDependencies": {
+    "@types/babel__traverse": "^7.28.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "@types/vscode": "^1.104.0",
+    "@types/vscode": "^1.60.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
     "@vscode/test-cli": "^0.0.11",

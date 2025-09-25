@@ -31,7 +31,7 @@ function extractByAST(ast: File): Map<string, Map<string, string>> {
 
   // 1) 收集 baseURL（字面量）
   traverse(ast, {
-    VariableDeclarator(path) {
+    VariableDeclarator(path: any) {
       const id = path.node.id;
       if (id.type === "Identifier" && id.name === "baseURL") {
         const init = path.node.init;
@@ -44,7 +44,7 @@ function extractByAST(ast: File): Map<string, Map<string, string>> {
 
   // 2) 找导出对象：export const Obj = { ... }
   traverse(ast, {
-    ExportNamedDeclaration(path) {
+    ExportNamedDeclaration(path: any) {
       const decl = path.node.declaration;
       if (!decl || decl.type !== "VariableDeclaration") return;
       for (const d of decl.declarations) {

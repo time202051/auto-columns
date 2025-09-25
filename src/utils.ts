@@ -34,7 +34,7 @@ export async function resolveBasicUrlMap(
   for (const f of folders) {
     const root = f.uri;
     const candidates = buildImportCandidates(root, importPath);
-    for (const uri of candidates) {
+    for (const uri of candidates as any) {
       try {
         const stat = await vscode.workspace.fs.stat(uri);
         if (stat) {
