@@ -300,20 +300,25 @@ export function findSwaggerImport(text: string): { modulePath: string } | null {
   if (!m) return null;
   return { modulePath: m[1] };
 }
-export type ParsedSwaggerImport = {
+
+type NamedImport = { exported: string; local: string };
+type ParsedSwaggerImport = {
   modulePath: string;
-  named: Array<{ exported: string; local: string }>;
-  namespace?: string; // 命名空间本地名，例如 API
+  named?: NamedImport[];
+  namespace?: string;
+  defaultImport?: string;
 };
 
-export function parseSwaggerImport(text: string): ParsedSwaggerImport | null {
-  // 命名导入：import { Basic, Stacker as SK, accountUser } from '...swagger'
+export function parseSwaggerImport(text: string): ParsedSwaggerImport[] {
+  const results: ParsedSwaggerImport[] = [];
+
+  // 1️⃣ 命名导入：import { Basic, Stacker as SK } from '...swagger'
   const namedRe =
     /import\s*\{\s*([^}]+?)\s*\}\s*from\s*['"]([^'"]*swagger[^'"]*)['"]/g;
-  const m1 = namedRe.exec(text);
-  if (m1) {
-    const modulePath = m1[2];
-    const named = m1[1]
+  let m: RegExpExecArray | null;
+  while ((m = namedRe.exec(text))) {
+    const modulePath = m[2];
+    const named = m[1]
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean)
@@ -321,31 +326,26 @@ export function parseSwaggerImport(text: string): ParsedSwaggerImport | null {
         const mm = s.match(
           /^([A-Za-z_$][\w$]*)(?:\s+as\s+([A-Za-z_$][\w$]*))?$/i
         );
-        return {
-          exported: mm?.[1] || s,
-          local: mm?.[2] || mm?.[1] || s,
-        };
+        return { exported: mm?.[1] || s, local: mm?.[2] || mm?.[1] || s };
       });
-    return { modulePath, named };
+    results.push({ modulePath, named });
   }
 
-  // 命名空间导入：import * as API from '...swagger'
+  // 2️⃣ 命名空间导入：import * as API from '...swagger'
   const nsRe =
     /import\s*\*\s*as\s+([A-Za-z_$][\w$]*)\s*from\s*['"]([^'"]*swagger[^'"]*)['"]/g;
-  const m2 = nsRe.exec(text);
-  if (m2) {
-    return { modulePath: m2[2], named: [], namespace: m2[1] };
+  while ((m = nsRe.exec(text))) {
+    results.push({ modulePath: m[2], namespace: m[1] });
   }
 
-  // 默认导入：import Swagger from '...swagger'（一般不用于点用法，忽略）
+  // 3️⃣ 默认导入：import Swagger from '...swagger'
   const defRe =
     /import\s+([A-Za-z_$][\w$]*)\s*from\s*['"]([^'"]*swagger[^'"]*)['"]/g;
-  const m3 = defRe.exec(text);
-  if (m3) {
-    return { modulePath: m3[2], named: [] };
+  while ((m = defRe.exec(text))) {
+    results.push({ modulePath: m[2], defaultImport: m[1] });
   }
 
-  return null;
+  return results;
 }
 
 export function collectImportedObjectUsages(
