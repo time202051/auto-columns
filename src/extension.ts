@@ -161,53 +161,64 @@ export function activate(context: vscode.ExtensionContext) {
       const text = doc.getText();
 
       // 解析任何包含 swagger 的导入（命名/命名空间）
-      const parsed = parseSwaggerImport(text);
+      const parseds: any = parseSwaggerImport(text);
+      console.log("aaa-parsed", parseds);
+      const arrUrls: string[] = [];
 
-      if (parsed) {
-        const namedLocals = parsed.named.map((n) => n.local);
-        const usages = collectImportedObjectUsages(
-          text,
-          namedLocals,
-          parsed.namespace
-        );
+      // 使用 for...of 循环替代 forEach，确保异步操作按顺序执行
+      for (const parsed of parseds) {
+        if (parsed) {
+          const namedLocals = parsed.named.map((n: any) => n.local);
+          const usages = collectImportedObjectUsages(
+            text,
+            namedLocals,
+            parsed.namespace
+          );
 
-        if (usages.length === 0) {
-          vscode.window.showInformationMessage("未检测到接口");
-          return;
+          if (usages.length === 0) {
+            vscode.window.showInformationMessage("未检测到接口");
+            continue; // 使用 continue 替代 return
+          }
+
+          // 读取 swagger 模块，构建 导出对象 -> (键->URL)
+          const maps = await resolveSwaggerObjectMaps(
+            parsed.modulePath,
+            doc.uri
+          );
+
+          // 本地名 -> 导出名 的映射（用于重命名导入）
+          const localToExported = new Map<string, string>();
+          for (const n of parsed.named) {
+            localToExported.set(n.local, n.exported);
+          }
+
+          const urls: string[] = [];
+          for (const u of usages) {
+            // 命名导入用法：object 是本地名，需要还原成导出名
+            const exportedObject =
+              localToExported.get(u.object) || // 命名导入本地名
+              u.object; // 命名空间用法已经是导出对象名（ns.Object.key）
+            const url = maps.get(exportedObject)?.get(u.key);
+            if (url) urls.push(url);
+          }
+          const dedup = Array.from(new Set(urls));
+          const base = await getOrAskSwaggerBaseUrl(context);
+          const finalUrls = dedup.map((u) => joinUrl(base, u));
+          // await vscode.env.clipboard.writeText(
+          //   JSON.stringify(finalUrls, null, 2)
+          // );
+          // vscode.window.showInformationMessage(
+          //   `已复制 ${finalUrls.length} 个URL`
+          // );
+
+          // 追加：直接进入 extractSwaggerInfo 流程
+          console.log("aaa-finalUrls", finalUrls);
+          arrUrls.push(...finalUrls);
         }
-
-        // 读取 swagger 模块，构建 导出对象 -> (键->URL)
-        const maps = await resolveSwaggerObjectMaps(parsed.modulePath, doc.uri);
-
-        // 本地名 -> 导出名 的映射（用于重命名导入）
-        const localToExported = new Map<string, string>();
-        for (const n of parsed.named) {
-          localToExported.set(n.local, n.exported);
-        }
-
-        const urls: string[] = [];
-        for (const u of usages) {
-          // 命名导入用法：object 是本地名，需要还原成导出名
-          const exportedObject =
-            localToExported.get(u.object) || // 命名导入本地名
-            u.object; // 命名空间用法已经是导出对象名（ns.Object.key）
-          const url = maps.get(exportedObject)?.get(u.key);
-          if (url) urls.push(url);
-        }
-        const dedup = Array.from(new Set(urls));
-        const base = await getOrAskSwaggerBaseUrl(context);
-        const finalUrls = dedup.map((u) => joinUrl(base, u));
-        // await vscode.env.clipboard.writeText(
-        //   JSON.stringify(finalUrls, null, 2)
-        // );
-        // vscode.window.showInformationMessage(
-        //   `已复制 ${finalUrls.length} 个URL`
-        // );
-
-        // 追加：直接进入 extractSwaggerInfo 流程
-        await runExtractSwaggerInfoFlow(finalUrls);
-        return;
       }
+      console.log("aaa-arrUrls", arrUrls);
+
+      await runExtractSwaggerInfoFlow(arrUrls);
 
       // 回退：老的 Basic 用法（保持返回 [] 的语义）
       const importInfo = findBasicImport(text);
@@ -220,19 +231,19 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage("未检测到接口");
         return;
       }
-      const urlMap = await resolveBasicUrlMap(importInfo.modulePath);
-      const urls: string[] = [];
-      for (const k of basicKeys) {
-        const v = urlMap.get(k);
-        if (v) urls.push(v);
-      }
-      const dedup = Array.from(new Set(urls));
-      const base = await getOrAskSwaggerBaseUrl(context);
-      const finalUrls = dedup.map((u) => joinUrl(base, u));
-      // await vscode.env.clipboard.writeText(JSON.stringify(finalUrls, null, 2));
-      // vscode.window.showInformationMessage(`已复制 ${finalUrls.length} 个URL`);
-      // 追加：直接进入 extractSwaggerInfo 流程
-      await runExtractSwaggerInfoFlow(finalUrls);
+      // const urlMap = await resolveBasicUrlMap(importInfo.modulePath);
+      // const urls: string[] = [];
+      // for (const k of basicKeys) {
+      //   const v = urlMap.get(k);
+      //   if (v) urls.push(v);
+      // }
+      // const dedup = Array.from(new Set(urls));
+      // const base = await getOrAskSwaggerBaseUrl(context);
+      // const finalUrls = dedup.map((u) => joinUrl(base, u));
+      // // await vscode.env.clipboard.writeText(JSON.stringify(finalUrls, null, 2));
+      // // vscode.window.showInformationMessage(`已复制 ${finalUrls.length} 个URL`);
+      // // 追加：直接进入 extractSwaggerInfo 流程
+      // await runExtractSwaggerInfoFlow(finalUrls);
     }
   );
 
