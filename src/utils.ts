@@ -417,3 +417,74 @@ export function collectImportedObjectUsages(
 
   return out;
 }
+
+// 新增：提取直接写死的URL
+export function extractDirectUrls(text: string): string[] {
+  const urls: string[] = [];
+  const seen = new Set<string>();
+
+  // 匹配常见的HTTP请求模式中的URL
+  const patterns = [
+    // axios.get('/api/users')
+    /\.(?:get|post|put|delete|patch|head|options)\s*\(\s*['"`]([^'"`]+)['"`]/g,
+    // fetch('/api/users')
+    /fetch\s*\(\s*['"`]([^'"`]+)['"`]/g,
+    // request('/api/users')
+    /request\s*\(\s*['"`]([^'"`]+)['"`]/g,
+    // $.get('/api/users')
+    /\$\.(?:get|post|put|delete|ajax)\s*\(\s*['"`]([^'"`]+)['"`]/g,
+    // url: '/api/users'
+    /url\s*:\s*['"`]([^'"`]+)['"`]/g,
+    // path: '/api/users'
+    /path\s*:\s*['"`]([^'"`]+)['"`]/g,
+    // endpoint: '/api/users'
+    /endpoint\s*:\s*['"`]([^'"`]+)['"`]/g,
+    // 模板字符串中的URL
+    /\.(?:get|post|put|delete|patch|head|options)\s*\(\s*`([^`]+)`/g,
+    /fetch\s*\(\s*`([^`]+)`/g,
+    /request\s*\(\s*`([^`]+)`/g,
+  ];
+
+  for (const pattern of patterns) {
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text))) {
+      const url = match[1];
+      // 过滤掉明显不是API路径的URL
+      if (isValidApiUrl(url) && !seen.has(url)) {
+        seen.add(url);
+        urls.push(url);
+      }
+    }
+  }
+
+  return urls;
+}
+
+// 判断是否为有效的API URL
+export function isValidApiUrl(url: string): boolean {
+  // 排除明显不是API的路径
+  const excludePatterns = [
+    /^https?:\/\//, // 完整URL（可能包含域名）
+    /^\./, // 相对路径
+    /^\/$/, // 根路径
+    /\.(html|css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/i, // 静态资源
+    /^#/, // 锚点
+    /^mailto:/, // 邮件链接
+    /^tel:/, // 电话链接
+    /^javascript:/, // JavaScript协议
+  ];
+
+  for (const pattern of excludePatterns) {
+    if (pattern.test(url)) {
+      return false;
+    }
+  }
+
+  // 必须是看起来像API路径的字符串
+  return (
+    url.length > 1 &&
+    (url.startsWith("/") || // 绝对路径
+      url.includes("/") || // 包含路径分隔符
+      /^[a-zA-Z0-9_-]+$/.test(url)) // 简单的标识符
+  );
+}

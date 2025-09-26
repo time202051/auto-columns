@@ -11,6 +11,7 @@ import {
   parseSwaggerImport,
   collectImportedObjectUsages,
   resolveSwaggerObjectMaps,
+  extractDirectUrls,
 } from "./utils";
 import { SwaggerService } from "./swaggerService";
 
@@ -162,7 +163,6 @@ export function activate(context: vscode.ExtensionContext) {
 
       // 解析任何包含 swagger 的导入（命名/命名空间）
       const parseds: any = parseSwaggerImport(text);
-      console.log("aaa-parsed", parseds);
       const arrUrls: string[] = [];
 
       // 使用 for...of 循环替代 forEach，确保异步操作按顺序执行
@@ -204,20 +204,16 @@ export function activate(context: vscode.ExtensionContext) {
           const dedup = Array.from(new Set(urls));
           const base = await getOrAskSwaggerBaseUrl(context);
           const finalUrls = dedup.map((u) => joinUrl(base, u));
-          // await vscode.env.clipboard.writeText(
-          //   JSON.stringify(finalUrls, null, 2)
-          // );
-          // vscode.window.showInformationMessage(
-          //   `已复制 ${finalUrls.length} 个URL`
-          // );
-
-          // 追加：直接进入 extractSwaggerInfo 流程
-          console.log("aaa-finalUrls", finalUrls);
           arrUrls.push(...finalUrls);
         }
       }
-      console.log("aaa-arrUrls", arrUrls);
-
+          // 2. 收集直接写死的URL
+      const directUrls = extractDirectUrls(text);
+      if (directUrls.length > 0) {
+        const base = await getOrAskSwaggerBaseUrl(context);
+        const finalDirectUrls = directUrls.map((u) => joinUrl(base, u));
+        arrUrls.push(...finalDirectUrls);
+      }
       await runExtractSwaggerInfoFlow(arrUrls);
 
       // 回退：老的 Basic 用法（保持返回 [] 的语义）
