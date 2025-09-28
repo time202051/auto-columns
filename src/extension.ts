@@ -4,10 +4,6 @@ import * as vscode from "vscode";
 import {
   findBasicImport,
   collectBasicKeys,
-  resolveBasicUrlMap,
-  buildImportCandidates,
-  extractBasicObjectUrls,
-  findSwaggerImport,
   parseSwaggerImport,
   collectImportedObjectUsages,
   resolveSwaggerObjectMaps,
@@ -85,12 +81,14 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       const selectedText = editor.document.getText(selection);
+
+      const base = await getOrAskSwaggerBaseUrl(context);
+      const finalUrls = joinUrl(base, selectedText);
+
       const swaggerService = SwaggerService.getInstance();
 
       // 从选中的文本中提取Swagger信息（支持多URL）
-
-      const swaggerInfos =
-        swaggerService.extractSwaggerInfoFromUrls(selectedText);
+      const swaggerInfos = swaggerService.extractSwaggerInfoFromUrls(finalUrls);
 
       if (!swaggerInfos || swaggerInfos.length === 0) {
         vscode.window.showErrorMessage(
@@ -130,16 +128,6 @@ export function activate(context: vscode.ExtensionContext) {
           `解析失败: ${error instanceof Error ? error.message : "未知错误"}`
         );
       }
-    }
-  );
-
-  // 注册Hello World命令（保留原有功能）
-  const helloWorldCommand = vscode.commands.registerCommand(
-    "auto-columns.helloWorld",
-    () => {
-      // The code you place here will be executed every time your command is executed
-      // Display a message box to the user
-      vscode.window.showInformationMessage("Hello World from auto-columns!");
     }
   );
 
@@ -207,7 +195,7 @@ export function activate(context: vscode.ExtensionContext) {
           arrUrls.push(...finalUrls);
         }
       }
-          // 2. 收集直接写死的URL
+      // 2. 收集直接写死的URL
       const directUrls = extractDirectUrls(text);
       if (directUrls.length > 0) {
         const base = await getOrAskSwaggerBaseUrl(context);
@@ -253,7 +241,6 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     extractSwaggerInfoCommand,
-    helloWorldCommand,
     collectApiUrlsCommand,
     setSwaggerBaseUrlCommand
   );
@@ -303,33 +290,6 @@ async function runExtractSwaggerInfoFlow(selectedText: string[]) {
       `解析失败: ${error instanceof Error ? error.message : "未知错误"}`
     );
   }
-}
-async function runExtractSwaggerInfoFlow1(urls: string[]) {
-  if (!urls || urls.length === 0) {
-    vscode.window.showWarningMessage("未发现可解析的 URL");
-    return;
-  }
-  const swaggerService = SwaggerService.getInstance();
-  await vscode.window.withProgress(
-    {
-      location: vscode.ProgressLocation.Notification,
-      title: `正在解析 ${urls.length} 个Swagger API...`,
-      cancellable: false,
-    },
-    async (progress) => {
-      progress.report({ increment: 0 });
-      const swaggerInfos = swaggerService.extractSwaggerInfoFromUrls(urls);
-      const apiInfos = await swaggerService.parseMultipleSwaggerApis(
-        swaggerInfos
-      );
-      progress.report({ increment: 100 });
-      if (Object.keys(apiInfos).length > 0) {
-        showMultipleSwaggerInfo(apiInfos);
-      } else {
-        vscode.window.showErrorMessage("解析Swagger API失败");
-      }
-    }
-  );
 }
 /**
  * 显示Swagger API信息

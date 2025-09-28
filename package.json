@@ -4,7 +4,7 @@
   "description": "从 Swagger/OpenAPI 文档中提取分页接口的请求参数与 200 响应字段，在 VS Code 中以可视化方式展示，并一键复制为前端所需的配置结构",
   "publisher": "lijiapeng",
   "icon": "images/logo.png",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "engines": {
     "vscode": "^1.60.0"
   },
@@ -28,40 +28,49 @@
   "contributes": {
     "commands": [
       {
-        "command": "auto-columns.helloWorld",
-        "title": "Hello World"
-      },
-      {
-        "command": "auto-columns.extractSwaggerInfo",
-        "title": "提取Swagger接口信息",
+        "command": "auto-columns.setSwaggerBaseUrl",
+        "title": "设置 Swagger 基地址",
         "category": "Auto Columns"
       },
       {
         "command": "auto-columns.collectApiUrls",
-        "title": "提取页面Swagger接口信息",
+        "title": "提取 Swagger 所有接口",
         "category": "Auto Columns"
       },
       {
-        "command": "auto-columns.setSwaggerBaseUrl",
-        "title": "设置 Swagger 基地址",
+        "command": "auto-columns.extractSwaggerInfo",
+        "title": "提取选中接口（如：/api/app/xxxx）",
         "category": "Auto Columns"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "auto-columns.editorContext",
+        "label": "Auto Columns"
       }
     ],
     "menus": {
       "editor/context": [
         {
-          "command": "auto-columns.collectApiUrls",
-          "when": "resourceLangId == vue",
+          "submenu": "auto-columns.editorContext",
+          "when": "resourceLangId == vue || resourceLangId == javascript",
           "group": "1_modification"
-        },
-        {
-          "command": "auto-columns.collectApiUrls",
-          "when": "resourceLangId == javascript",
-          "group": "1_modification"
-        },
+        }
+      ],
+      "auto-columns.editorContext": [
         {
           "command": "auto-columns.setSwaggerBaseUrl",
-          "group": "1_modification"
+          "group": "1_modification@1"
+        },
+        {
+          "command": "auto-columns.collectApiUrls",
+          "when": "resourceLangId == vue || resourceLangId == javascript",
+          "group": "1_modification@2"
+        },
+        {
+          "command": "auto-columns.extractSwaggerInfo",
+          "when": "resourceLangId == vue || resourceLangId == javascript",
+          "group": "1_modification@3"
         }
       ]
     }
