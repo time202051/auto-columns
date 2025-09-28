@@ -531,6 +531,11 @@ function generateSwaggerInfoHtml(apiInfo: any, apiPath: string): string {
       <div class="method-section" data-method="${m}" style="${
         m === first ? "" : "display:none;"
       }">
+        <div class="method-meta">
+          <div class="api-desc"><span class="desc-label">接口说明：</span>${
+            methodInfo.summary || methodInfo.description || "-"
+          }</div>
+        </div>
         <div class="section">
           <h2>请求参数</h2>
           <div class="ops">
@@ -654,6 +659,15 @@ function generateSwaggerInfoHtml(apiInfo: any, apiPath: string): string {
         .section {
           margin-bottom: 24px;
         }
+        .method-meta {
+          margin-bottom: 12px;
+          padding: 8px 10px;
+          background: var(--vscode-editorWidget-background, #252526);
+          border: 1px solid var(--vscode-panel-border, #3c3c3c);
+          border-radius: 4px;
+        }
+        .api-desc { color: var(--vscode-foreground, #d4d4d4); }
+        .desc-label { opacity: 0.8; margin-right: 6px; }
         .section h2 {
           color: var(--vscode-foreground, #d4d4d4);
           border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
@@ -1117,6 +1131,11 @@ function generateMultipleSwaggerInfoHtml(apiInfos: {
           <div class="method-section" data-method="${m}" data-api-path="${apiPath}" style="${
             m === first ? "" : "display:none;"
           }">
+            <div class="method-meta">
+              <div class="api-desc"><span class="desc-label">接口说明：</span>${
+                methodInfo.summary || methodInfo.description || "-"
+              }</div>
+            </div>
             <div class="section">
               <h2>请求参数</h2>
               <div class="ops">
@@ -1274,6 +1293,15 @@ function generateMultipleSwaggerInfoHtml(apiInfos: {
         .section {
           margin-bottom: 24px;
         }
+        .method-meta {
+          margin-bottom: 12px;
+          padding: 8px 10px;
+          background: var(--vscode-editorWidget-background, #252526);
+          border: 1px solid var(--vscode-panel-border, #3c3c3c);
+          border-radius: 4px;
+        }
+        .api-desc { color: var(--vscode-foreground, #d4d4d4); }
+        .desc-label { opacity: 0.8; margin-right: 6px; }
         .section h2 {
           color: var(--vscode-foreground, #d4d4d4);
           border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);

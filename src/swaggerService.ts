@@ -17,6 +17,8 @@ export interface SwaggerInfo {
   byMethod: Record<
     string,
     {
+      summary?: string;
+      description?: string;
       parameters: Array<{
         name: string;
         type: string;
@@ -69,7 +71,12 @@ export class SwaggerService {
 
       const byMethod: Record<
         string,
-        { parameters: any[]; responses: ResponseNode[] }
+        {
+          summary?: string;
+          description?: string;
+          parameters: any[];
+          responses: ResponseNode[];
+        }
       > = {};
       for (const method of methods) {
         if (pathItem[method]) {
@@ -84,7 +91,15 @@ export class SwaggerService {
           const responses = this.extractResponses(operation);
           console.log("提取的响应（树形）:", responses);
 
-          byMethod[method.toUpperCase()] = { parameters, responses };
+          const summary = operation.summary || "";
+          const description = operation.description || "";
+
+          byMethod[method.toUpperCase()] = {
+            summary,
+            description,
+            parameters,
+            responses,
+          };
         }
       }
 
