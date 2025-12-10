@@ -112,7 +112,6 @@ export function activate(context: vscode.ExtensionContext) {
             const apiInfos = await swaggerService.parseMultipleSwaggerApis(
               swaggerInfos
             );
-
             progress.report({ increment: 100 });
 
             if (Object.keys(apiInfos).length > 0) {

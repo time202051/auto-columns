@@ -50,8 +50,37 @@ export class SwaggerService {
   ): Promise<SwaggerInfo | null> {
     try {
       // 使用 SwaggerParser 解析 Swagger 文档，自动处理 $ref 引用
-      console.log("开始解析 Swagger 文档:", swaggerUrl);
-      const swaggerDoc: any = await SwaggerParser.dereference(swaggerUrl);
+      console.log("开始解析 Swagger 文档:", swaggerUrl, apiPath);
+      // 先拿到原始文档，预处理自引用的绝对 $ref，避免 dereference 时报 Unable to resolve $ref pointer
+      const rawSpec = (await axios.get(swaggerUrl)).data;
+      const normalizeSelfRef = (obj: any) => {
+        if (!obj || typeof obj !== "object") return;
+        for (const [k, v] of Object.entries<any>(obj)) {
+          if (typeof v === "string") {
+            if (v === swaggerUrl) {
+              // 直接指向整个文档，改成根引用
+              (obj as any)[k] = "#/";
+            } else if (v.startsWith(swaggerUrl + "#/")) {
+              // 绝对地址自引用 -> 相对片段，避免再去 HTTP 拉取
+              (obj as any)[k] = v.replace(swaggerUrl, "");
+            }
+          } else if (typeof v === "object") {
+            normalizeSelfRef(v);
+          }
+        }
+      };
+      normalizeSelfRef(rawSpec);
+
+      let swaggerDoc: any;
+      try {
+        swaggerDoc = await SwaggerParser.dereference(rawSpec, {
+          // 阻止去拉取外部文件，避免无效 $ref 阻塞
+          resolve: { external: false },
+        });
+      } catch (e) {
+        console.warn("dereference 失败，回退使用未展开文档:", e);
+        swaggerDoc = rawSpec;
+      }
       // console.log('解析后的 Swagger 客户端:', client);
 
       // 获取解析后的 API 文档
@@ -340,7 +369,6 @@ export class SwaggerService {
         "",
         (itemsSchema as any).description
       );
-      console.log(5555, elementNode);
 
       // 数组节点的类型标注为 array<元素类型>
       const node: ResponseNode = {
