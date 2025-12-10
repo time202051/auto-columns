@@ -8,6 +8,11 @@
 - **智能接口收集**：自动识别并收集代码中使用的 API 接口地址
 - **Swagger 基地址配置**：支持全局配置 Swagger 服务地址，自动拼接接口路径
 
+## 效果截图
+
+![提取单个接口展示](https://raw.githubusercontent.com/time202051/auto-columns/main/images/demo-dark.png)
+![多接口切换与复制](https://raw.githubusercontent.com/time202051/auto-columns/main/images/demo-light.png)
+
 ## 使用方式
 
 ### 自动收集接口
