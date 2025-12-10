@@ -641,6 +641,8 @@ function generateSwaggerInfoHtml(apiInfo: any, apiPath: string): string {
           padding: 8px 0 16px 0;
           border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
           margin-bottom: 16px;
+          overflow-x: auto;
+          white-space: nowrap;
         }
         .tab-btn {
           background: var(--vscode-button-secondaryBackground, #3a3d41);
@@ -650,6 +652,7 @@ function generateSwaggerInfoHtml(apiInfo: any, apiPath: string): string {
           border-radius: 4px 4px 0 0;
           cursor: pointer;
           font-weight: 600;
+          white-space: nowrap;
         }
         .tab-btn.active {
           background: var(--vscode-button-background, #0e639c);
@@ -1254,6 +1257,8 @@ function generateMultipleSwaggerInfoHtml(apiInfos: {
           padding: 8px 0 16px 0;
           border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
           margin-bottom: 16px;
+          overflow-x: auto;
+          white-space: nowrap;
         }
         .api-tab-btn {
           background: var(--vscode-button-secondaryBackground, #3a3d41);
@@ -1264,6 +1269,7 @@ function generateMultipleSwaggerInfoHtml(apiInfos: {
           cursor: pointer;
           font-weight: 600;
           font-size: 14px;
+          white-space: nowrap;
         }
         .api-tab-btn.active {
           background: var(--vscode-button-background, #0e639c);
