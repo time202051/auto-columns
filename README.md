@@ -10,8 +10,8 @@
 
 ## 效果截图
 
-![提取单个接口展示](https://raw.githubusercontent.com/time202051/auto-columns/main/images/demo-dark.png)
-![多接口切换与复制](https://raw.githubusercontent.com/time202051/auto-columns/main/images/demo-light.png)
+![提取单个接口展示](https://raw.githubusercontent.com/time202051/auto-columns/master/images/demo-dark.png)
+![多接口切换与复制](https://raw.githubusercontent.com/time202051/auto-columns/master/images/demo-light.png)
 
 ## 使用方式
 

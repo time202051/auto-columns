@@ -4,7 +4,7 @@
   "description": "从 Swagger/OpenAPI 文档中提取分页接口的请求参数与 200 响应字段，在 VS Code 中以可视化方式展示，并一键复制为前端所需的配置结构",
   "publisher": "lijiapeng",
   "icon": "images/logo.png",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "engines": {
     "vscode": "^1.60.0"
   },
